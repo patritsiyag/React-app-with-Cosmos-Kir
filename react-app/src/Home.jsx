@@ -1,9 +1,10 @@
-import { useChain } from '@cosmos-kit/react';
+import { useChain, useManager } from '@cosmos-kit/react';
 import { useState, useEffect } from "react";
-import BigNumber from "bignumber.js";
+import { chains } from 'chain-registry';
 import { StargateClient } from "@cosmjs/stargate";
 import { sha256 } from "@cosmjs/crypto";
 import { Buffer } from "buffer";
+import { AppConstants } from './AppConstants';
 import './App.css';
 
 const useDebounce = (value, delay) => {
@@ -11,7 +12,6 @@ const useDebounce = (value, delay) => {
 
     useEffect(() => {
         const handler = setTimeout(() => setDebouncedValue(value), delay);
-
         return () => clearTimeout(handler);
     }, [value, delay]);
 
@@ -19,21 +19,38 @@ const useDebounce = (value, delay) => {
 };
 
 const Home = () => {
-    const { connect, openView, isWalletConnected, getRpcEndpoint, address } = useChain('osmosis');
+    const [selectedChain, setSelectedChain] = useState("celestia");
+    const chainName = chains?.find((c) => c.chain_id === selectedChain)?.chain_name;
+    const managerContext = useManager();
 
+    const { connect, openView, isWalletConnected, getRpcEndpoint, address } = useChain(chainName || '');
     const [rpc, setRpc] = useState('');
     const [isFetchingBalance, setFetchingBalance] = useState(false);
     const [isFetchingHashes, setFetchingHashes] = useState(false);
     const [blockId, setBlockId] = useState('');
-    const [balance, setBalance] = useState(new BigNumber(0));
+    const [balance, setBalance] = useState(null);
     const [hashes, setHashes] = useState([]);
     const debouncedInput = useDebounce(blockId, 500);
     const [client, setClient] = useState(null);
+    const denom = managerContext?.getChainRecord(chainName || '')?.chain?.staking?.staking_tokens[0]?.denom;
 
+    const options = Object.keys(AppConstants.ChainIds).map((key) => ({
+        value: AppConstants.ChainIds[key],
+        label: AppConstants.ChainLabels[key]
+    }));
+
+    const handleChange = (event) => {
+        const newChain = event.target.value;
+        setSelectedChain(newChain);
+        setBalance(null);
+        setClient(null);
+        setHashes([]);
+        setBlockId('')
+    };
 
     useEffect(() => {
         const fetchRpcEndpoint = async () => {
-            if (!rpc) {
+            if (selectedChain) {
                 try {
                     const endpoint = await getRpcEndpoint();
                     setRpc(endpoint);
@@ -42,102 +59,113 @@ const Home = () => {
                 }
             }
         };
-    
+
         fetchRpcEndpoint();
-    }, [rpc, getRpcEndpoint]);
+    }, [getRpcEndpoint, selectedChain]);
+
     useEffect(() => {
         const initializeClient = async () => {
             if (rpc) {
                 try {
                     const newClient = await StargateClient.connect(rpc);
+                    console.log(await newClient.getHeight())
                     setClient(newClient);
                 } catch (error) {
                     console.error("Error initializing Stargate client:", error);
                 }
             }
         };
-    
+
         initializeClient();
     }, [rpc]);
 
     useEffect(() => {
-
-
-        if (rpc && client) {
-            const fetchData = async () => {
+        const fetchBalance = async () => {
+            if (client && address && denom) {
                 setFetchingBalance(true);
                 try {
-                   
-
-                    console.log(await client.getHeight(), "height")
-                    const balanceData = await client.getAllBalances(address);
+                    const balanceData = await client.getBalance(address, denom);
                     setBalance(balanceData);
-
                 } catch (error) {
-                    console.log(error, "error")
+                    console.error("Error fetching balance:", error);
+                    setBalance(null);
                 } finally {
-
                     setFetchingBalance(false);
                 }
-            };
+            }
+        };
 
-            fetchData();
-        }
-    }, [rpc, address, client]);
+        fetchBalance();
+    }, [client, address, denom]);
+
     useEffect(() => {
-
-
-        if (rpc) {
-            const fetchData = async () => {
-
+        const fetchBlockData = async () => {
+            if (rpc && client && debouncedInput) {
+                setFetchingHashes(true);
                 try {
-                   
-                    if (debouncedInput && client) {
-                        const blockData = await client.getBlock(Number(debouncedInput.trim()));
-                        const txHashes = blockData.txs.map((txBase64) => {
-                            const txBytes = Buffer.from(txBase64, "base64");
-                            return Buffer.from(sha256(txBytes)).toString("hex").toUpperCase();
-                        });
-                        setHashes(txHashes)
-
-
-                    }
+                    const blockData = await client.getBlock(Number(debouncedInput.trim()));
+                    const txHashes = blockData.txs.map((txBase64) => {
+                        const txBytes = Buffer.from(txBase64, "base64");
+                        return Buffer.from(sha256(txBytes)).toString("hex").toUpperCase();
+                    });
+                    setHashes(txHashes);
                 } catch (error) {
-                    console.log(error, "error")
+                    console.error("Error fetching block data:", error);
+                    setHashes([]);
                 } finally {
-
-                    setFetchingHashes(false)
+                    setFetchingHashes(false);
                 }
-            };
+            }
+        };
 
-            fetchData();
-        }
+        fetchBlockData();
     }, [rpc, debouncedInput, client]);
+
     return (
         <div className="container">
+            <div>
+                <label htmlFor="dropdown">Choose an option: </label>
+                <select
+                    id="dropdown"
+                    value={selectedChain}
+                    onChange={handleChange}
+                    style={{ padding: "5px", margin: "10px 0" }}
+                >
+                    {options.map((option) => (
+                        <option key={option.value} value={option.value}>
+                            {option.label}
+                        </option>
+                    ))}
+                </select>
+                {selectedChain && <p>You selected: {selectedChain}</p>}
+            </div>
             <button
                 className="connectWallet"
                 onClick={() => (isWalletConnected ? openView() : connect())}
             >
                 {isWalletConnected ? "Open Wallet" : "Connect Wallet"}
             </button>
-            {isFetchingBalance ? <p>Fetching balance...</p> : <p>Balance: {balance[0]?.amount || 0}  </p>}
+            {isFetchingBalance || !balance ? (
+                <p>Fetching balance...</p>
+            ) :  (
+                <p>Balance: {balance?.amount} {denom}</p>
+            ) } 
             <input
                 type="text"
                 value={blockId}
-                onChange={(e) => {
-                    setFetchingHashes(true);
-                    setBlockId(e.target.value)
-                }}
+                onChange={(e) => setBlockId(e.target.value)}
                 placeholder="Enter block ID"
             />
-
             {isFetchingHashes ? (
                 <p>Fetching transactions...</p>
             ) : (
                 <ul>
                     {hashes.map((hash, index) => (
-                        <li key={index}><a href={`https://www.mintscan.io/osmosis/tx/${hash}?height=${debouncedInput}`}>{hash}</a></li>
+                        <li key={index}>
+                            <a href={`https://www.mintscan.io/${selectedChain}/tx/${hash}?height=${debouncedInput}`}>
+                                {hash}
+                            </a>
+                        </li>
                     ))}
                 </ul>
             )}
