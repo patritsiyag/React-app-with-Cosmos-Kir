@@ -1,5 +1,5 @@
 import { useChain, useManager } from '@cosmos-kit/react';
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { chains } from 'chain-registry';
 import { StargateClient } from "@cosmjs/stargate";
 import { sha256 } from "@cosmjs/crypto";
@@ -9,10 +9,15 @@ import './App.css';
 
 const useDebounce = (value, delay) => {
     const [debouncedValue, setDebouncedValue] = useState(value);
+    const timeoutRef = useRef(null);
 
     useEffect(() => {
-        const handler = setTimeout(() => setDebouncedValue(value), delay);
-        return () => clearTimeout(handler);
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = setTimeout(() => {
+            setDebouncedValue(value);
+        }, delay);
+
+        return () => clearTimeout(timeoutRef.current);
     }, [value, delay]);
 
     return debouncedValue;
@@ -22,8 +27,7 @@ const Home = () => {
     const [selectedChain, setSelectedChain] = useState("celestia");
     const chainName = chains?.find((c) => c.chain_id === selectedChain)?.chain_name;
     const managerContext = useManager();
-
-    const { connect, openView, isWalletConnected, getRpcEndpoint, address } = useChain(chainName || '');
+    const { connect, openView, isWalletConnected, getRpcEndpoint, address, disconnect } = useChain(chainName || '');
     const [rpc, setRpc] = useState('');
     const [isFetchingBalance, setFetchingBalance] = useState(false);
     const [isFetchingHashes, setFetchingHashes] = useState(false);
@@ -41,16 +45,19 @@ const Home = () => {
 
     const handleChange = (event) => {
         const newChain = event.target.value;
-        setSelectedChain(newChain);
         setBalance(null);
+        setRpc('')
         setClient(null);
         setHashes([]);
-        setBlockId('')
+        setBlockId('');
+        disconnect();
+        setSelectedChain(newChain);
+
     };
 
     useEffect(() => {
         const fetchRpcEndpoint = async () => {
-            if (selectedChain) {
+            if (selectedChain && isWalletConnected) {
                 try {
                     const endpoint = await getRpcEndpoint();
                     setRpc(endpoint);
@@ -61,14 +68,14 @@ const Home = () => {
         };
 
         fetchRpcEndpoint();
-    }, [getRpcEndpoint, selectedChain]);
+    }, [getRpcEndpoint, selectedChain, isWalletConnected]);
 
     useEffect(() => {
         const initializeClient = async () => {
-            if (rpc) {
+            if (rpc && isWalletConnected) {
                 try {
                     const newClient = await StargateClient.connect(rpc);
-                    console.log(await newClient.getHeight())
+                    console.log(await newClient.getHeight(), "height");
                     setClient(newClient);
                 } catch (error) {
                     console.error("Error initializing Stargate client:", error);
@@ -77,7 +84,7 @@ const Home = () => {
         };
 
         initializeClient();
-    }, [rpc]);
+    }, [rpc, isWalletConnected]);
 
     useEffect(() => {
         const fetchBalance = async () => {
@@ -120,7 +127,7 @@ const Home = () => {
 
         fetchBlockData();
     }, [rpc, debouncedInput, client]);
-
+    console.log(chains?.find((c) => c.chain_id === selectedChain), "chains")
     return (
         <div className="container">
             <div>
@@ -145,29 +152,33 @@ const Home = () => {
             >
                 {isWalletConnected ? "Open Wallet" : "Connect Wallet"}
             </button>
-            {isFetchingBalance || !balance ? (
-                <p>Fetching balance...</p>
-            ) :  (
-                <p>Balance: {balance?.amount} {denom}</p>
-            ) } 
-            <input
-                type="text"
-                value={blockId}
-                onChange={(e) => setBlockId(e.target.value)}
-                placeholder="Enter block ID"
-            />
-            {isFetchingHashes ? (
-                <p>Fetching transactions...</p>
-            ) : (
-                <ul>
-                    {hashes.map((hash, index) => (
-                        <li key={index}>
-                            <a href={`https://www.mintscan.io/${selectedChain}/tx/${hash}?height=${debouncedInput}`}>
-                                {hash}
-                            </a>
-                        </li>
-                    ))}
-                </ul>
+            {isWalletConnected && (
+                <div className="blockData">
+                    {isFetchingBalance || !balance ? (
+                        <p>Fetching balance...</p>
+                    ) : (
+                        <p>Balance: {balance?.amount} {denom}</p>
+                    )}
+                    <input
+                        type="text"
+                        value={blockId}
+                        onChange={(e) => setBlockId(e.target.value)}
+                        placeholder="Enter block ID"
+                    />
+                    {isFetchingHashes ? (
+                        <p>Fetching transactions...</p>
+                    ) : (
+                        <ul>
+                            {hashes.map((hash, index) => (
+                                <li key={index}>
+                                    <a href={`https://www.mintscan.io/${AppConstants.ChainNames[chainName]}/tx/${hash}?height=${debouncedInput}`}>
+                                        {hash}
+                                    </a>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
             )}
         </div>
     );

@@ -10,5 +10,11 @@ export const AppConstants = {
         CELESTIA: 'Celestia',
         GRAND: 'Grand',
         OSMOSIS: 'Osmosis'
+    },
+    ChainNames: {
+        osmosistestnet: 'osmosis-testnet',
+        mantrachaintestnet2: 'mantra-testnet',
+        celestia: 'celestia',
+        nobletestnet: 'noble-testnet'
     }
 };
