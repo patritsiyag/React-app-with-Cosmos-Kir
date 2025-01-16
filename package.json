@@ -8,6 +8,7 @@
     "create-vite": "^6.1.1",
     "esbuild-plugins-node-modules-polyfill": "^1.6.8",
     "juno-network": "^0.18.1",
+    "prop-types": "^15.8.1",
     "vite-plugin-node-polyfills": "^0.22.0"
   }
 }
