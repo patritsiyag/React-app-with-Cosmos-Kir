@@ -35,7 +35,7 @@ const PoolsTable = ({ pools, isFetchingPools }) => {
     );
 };
 PoolsTable.propTypes = {
-    pools: PropTypes.array,
+    pools: PropTypes.object,
     isFetchingPools: PropTypes.bool,
 }
 export default PoolsTable;

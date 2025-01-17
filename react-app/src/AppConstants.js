@@ -12,5 +12,8 @@ export const AppConstants = {
         OSMOSIS: 'Osmosis'
     },
     TABLE_HEADERS: ['Pool Identifier', 'Lp Denom', 'Asset Denoms'],
-    TABLE_KEYS: ['pool_identifier', 'lp_denom', 'asset_denoms']
+    TABLE_KEYS: ['pool_identifier', 'lp_denom', 'asset_denoms'],
+    EXPLORERS: {
+        MINTSKAN: 'mintscan',
+    },
 };
