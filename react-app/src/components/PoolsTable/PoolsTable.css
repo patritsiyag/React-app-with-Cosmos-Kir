@@ -1,0 +1,44 @@
+.pools-table-container {
+    padding: 20px;
+    overflow-x: auto;
+}
+
+.pools-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0 auto;
+    font-size: 14px;
+    min-width: 600px;
+}
+
+.table-header {
+    border: 1px solid #ddd;
+    padding: 12px 10px;
+    text-align: center;
+    background-color: #f4f4f4;
+    font-weight: bold;
+    font-size: 16px;
+}
+
+.table-row:hover {
+    background-color: #f9f9f9;
+}
+
+.table-cell {
+    border: 1px solid #ddd;
+    padding: 10px;
+    text-align: center;
+    word-break: break-word;
+}
+
+@media (max-width: 768px) {
+    .pools-table {
+        font-size: 12px;
+        min-width: unset;
+    }
+
+    .table-header,
+    .table-cell {
+        padding: 8px 5px;
+    }
+}

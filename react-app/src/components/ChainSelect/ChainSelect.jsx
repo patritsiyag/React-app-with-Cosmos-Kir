@@ -1,5 +1,5 @@
 import React from 'react';
-import { AppConstants } from '../AppConstants';
+import { AppConstants } from '../../AppConstants';
 import PropTypes from 'prop-types';
 
 const ChainSelect = ({ selectedChain, handleChange }) => {

@@ -3,7 +3,7 @@
 import { ChainProvider } from '@cosmos-kit/react';
 import { chains, assets } from 'chain-registry';
 import { wallets } from '@cosmos-kit/keplr';
-import Home from './Home';
+import Home from './components/Home/Home';
 
 // Import this in your top-level route/layout
 import "@interchain-ui/react/styles";
